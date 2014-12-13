@@ -101,9 +101,9 @@ J = (1/M) * Σ_m log(Σ_j(exp(z1[j,m]))) - z1[y[m],m]
 
 
 Softmax ∇z[L+1] - vectorized form: 
-(Assuming Y[i,m]=1 if instance m is in class i)
+(Assuming Y[i,m]=1 if instance m is in class i, ./ needs repmat or singleton expansion)
 
-a[L+1] = exp(z[L+1]) ./ log(Σ_i(exp(z[L+1])))  # with repmat or singleton expansion
+a[L+1] = exp(z[L+1]) ./ log(Σ_i(exp(z[L+1])))
 ∇z[L+1] = (1/M) * (a[L+1] - Y)
 
 
