@@ -1,8 +1,8 @@
-function grad = backward(net, a, dz)
-    for i=numel(net):-1:1
-        grad(i).w = dz * a{i}';
-        grad(i).b = sum(dz, 2);
-        if (i==1) break; end;
-        dz = (a{i} > 0) .* (net(i).w' * dz);
+function dw = backward(w, a, dz)
+    for i=numel(w):-1:1
+        dw{i} = dz * a{i}';
+        if i > 1
+            dz = (a{i} > 0) .* (w{i}' * dz);
+        end
     end
 end
