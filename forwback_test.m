@@ -3,7 +3,7 @@ function forwback_test(net, x, y, n, epsilon)
     if nargin < 4 n = 10; end
 
     % compute the bp gradient in original precision
-    [grad, a] = forwback(net, x, y);
+    grad = forwback(net, x, y);
 
     % compute the numerical estimate in double precision
     net = dblnet(net);
