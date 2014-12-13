@@ -42,25 +42,25 @@ function forwback_test(net, x, y, n, epsilon)
     disp(diff);
 
     function g = westimate(i, r)
-        save = net(i).w(r);
-        net(i).w(r) = save + epsilon;
+        orig = net(i).w(r);
+        net(i).w(r) = orig + epsilon;
         cost1 = softmax_cost(forward(net, x), y);
-        net(i).w(r) = save - epsilon;
+        net(i).w(r) = orig - epsilon;
         cost2 = softmax_cost(forward(net, x), y);
-        net(i).w(r) = save;
+        net(i).w(r) = orig;
         g = gather((cost1 - cost2) / (2 * epsilon));
-        % fprintf('net(%d).w(%d)=%g cost1=%.12g cost2=%.12g\n', i, r, save, cost1, cost2);
+        % fprintf('net(%d).w(%d)=%g cost1=%.12g cost2=%.12g\n', i, r, orig, cost1, cost2);
     end
 
     function g = bestimate(i, r)
-        save = net(i).b(r);
-        net(i).b(r) = save + epsilon;
+        orig = net(i).b(r);
+        net(i).b(r) = orig + epsilon;
         cost1 = softmax_cost(forward(net, x), y);
-        net(i).b(r) = save - epsilon;
+        net(i).b(r) = orig - epsilon;
         cost2 = softmax_cost(forward(net, x), y);
-        net(i).b(r) = save;
+        net(i).b(r) = orig;
         g = gather((cost1 - cost2) / (2 * epsilon));
-        % fprintf('net(%d).w(%d)=%g cost1=%.12g cost2=%.12g\n', i, r, save, cost1, cost2);
+        % fprintf('net(%d).w(%d)=%g cost1=%.12g cost2=%.12g\n', i, r, orig, cost1, cost2);
     end
 end
 
