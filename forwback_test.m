@@ -38,9 +38,9 @@ function forwback_test(net, x, y, n, epsilon)
     function g = estimate(i, r)
         orig = net{i}(r);
         net{i}(r) = orig + epsilon;
-        cost1 = softmax_cost(forward(net, x), y);
+        [~,cost1] = softmax_diff(forward(net, x), y);
         net{i}(r) = orig - epsilon;
-        cost2 = softmax_cost(forward(net, x), y);
+        [~,cost2] = softmax_diff(forward(net, x), y);
         net{i}(r) = orig;
         g = gather((cost1 - cost2) / (2 * epsilon));
         % fprintf('net(%d).w(%d)=%g cost1=%.12g cost2=%.12g\n', i, r, orig, cost1, cost2);
