@@ -1,25 +1,28 @@
 function w = adagrad(w, x, y, varargin)
     o = options(w, x, y, varargin{:});
-    r = [];
     xsize = size(x, 2);
-    gdev = gpuDevice();
+    epsilon = 1e-8;
 
     for l=1:numel(w)
-        g2{l} = 1e-8 + zeros(size(w{l}), 'like', w{l});
+        G{l} = 0 * w{l};
     end
 
+    r = report();
     for e = 1:o.epochs
         for i = 1:o.batchSize:xsize
             j = min(i+o.batchSize-1, xsize);
             [g, cost] = forwback(w, x(:,i:j), y(:,i:j));
-            %wait(gdev);
             for l=1:numel(g)
-                g2{l}(:) = g2{l} + g{l} .* g{l};
-                %wait(gdev);
-                w{l}(:) = w{l} - o.learningRate * g{l} ./ sqrt(g2{l});
-                %wait(gdev);
+                G{l}(:) = G{l} + g{l} .* g{l};
+                dw = o.learningRate * g{l} ./ (epsilon + sqrt(G{l}));
+                w{l}(:) = w{l} - dw;
+                w{l}(:,1) = w{l}(:,1) - dw(:,1); % caffe blobs_lr:2 hack
+                if l < numel(g)         % bias hack
+                    w{l}(1,:) = 0;
+                    w{l}(1,1) = 1;
+                end
             end
-            r = report(r, i, cost, o.printStep);
+            r = report(cost, w, j-i+1, o, r);
         end
     end
 end
@@ -30,35 +33,53 @@ function o = options(w, x, y, varargin)
     p.addRequired('w', @iscell);
     p.addRequired('x', @isnumeric);
     p.addRequired('y', @isnumeric);
-    p.addParameter('epochs', 1, @isnumeric);
-    p.addParameter('batchSize', 128, @isnumeric);
-    p.addParameter('learningRate', 0.1, @isnumeric);
-    p.addParameter('printStep', 100, @isnumeric);
+    p.addParamValue('epochs', 1, @isnumeric);
+    p.addParamValue('batchSize', 128, @isnumeric);
+    p.addParamValue('learningRate', 0.04, @isnumeric);
+    p.addParamValue('printStep', 1e4, @isnumeric);
+    p.addParamValue('testStep', 1e5, @isnumeric);
+    p.addParamValue('xdev', [], @isnumeric);
+    p.addParamValue('ydev', [], @isnumeric);
     p.parse(w, x, y, varargin{:});
     o = p.Results;
 end
 
 
-function r = report(r, i, cost, step)
-    if isempty(r)
+function r = report(cost, w, m, o, r)
+    if nargin < 1
         r.time = tic;
-        r.ncall = 0;
+        r.instances = 0;
+        r.nextprint = 0;
+        r.nexttest = 0;
+        r.avgcost = inf;
         r.infcost = 0;
-        r.mcost = inf;
+        fprintf('inst\tavgcost\tspeed\ttime\n');
+        return;
     end
-    if isinf(r.mcost)
-        r.mcost = cost;
+    if isinf(r.avgcost)
+        r.avgcost = cost;
     else
-        r.mcost = (1/step)*cost + (1-(1/step)) * r.mcost;
+        r.avgcost = 0.01*cost + 0.99*r.avgcost;
     end
     if isinf(cost)
         r.infcost = r.infcost + 1;
     end
-    if mod(r.ncall, step) == 0
-        if mod(r.ncall, 10*step) == 0
-            fprintf('inst\tmcost\tspeed\ttime\tinfcost\n');
+    r.instances = r.instances + m;
+    if ~isempty(o.xdev)
+        if r.instances >= r.nexttest
+            fprintf('Testing... ');
+            [acc, cost] = evalnet(w, o.xdev, o.ydev);
+            fprintf('dev-accuracy=%g dev-cost=%g\n', acc, cost);
+            r.nexttest = r.nexttest + o.testStep;
         end
-        fprintf('%d\t%.5f\t%.2f\t%.2f\t%.d\n', i, r.mcost, i/toc(r.time), toc(r.time), r.infcost);
     end
-    r.ncall = r.ncall + 1;
+    if r.instances >= r.nextprint
+        fprintf('%g\t%.5f\t%.2f\t%.2f', r.instances, r.avgcost, r.instances/toc(r.time), toc(r.time));
+        if r.infcost > 0 
+            fprintf('\tinfcost=%d', r.infcost); 
+            r.infcost = 0;
+        end
+        fprintf('\n');
+        r.nextprint = r.nextprint + o.printStep;
+    end
 end
