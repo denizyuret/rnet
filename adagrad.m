@@ -16,8 +16,8 @@ function w = adagrad(w, x, y, varargin)
                 dw = o.learningRate * g{l} ./ (o.eps + sqrt(G{l}));
 
                 %% hackery to match caffe with bias and local lr
-                if (l < numel(g)) dw(1,:) = single(0); end % bias hack
-                dw(:,1) = dw(:,1) * single(2);  % caffe blobs_lr:2 hack
+                if (l < numel(g)) dw(1,:) = 0; end % bias hack
+                dw(:,1) = dw(:,1) * 2;  % caffe blobs_lr:2 hack
                 %% end of hackery
 
                 w{l}(:) = w{l} - dw;
