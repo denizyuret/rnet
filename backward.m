@@ -1,4 +1,4 @@
-function dw = backward(w, a, dz)
+function [dw, dz] = backward(w, a, dz)
     for i=numel(w):-1:1
         dw{i} = dz * a{i}';
         if i > 1
