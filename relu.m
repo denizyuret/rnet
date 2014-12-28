@@ -1,17 +1,32 @@
 classdef relu < handle
     
     properties
-        y
+        y 		% output
+        x		% input
+        w               % parameters
+        dw              % gradient of parameters
     end
+
     methods
         
-        function a = forw(l, a)
-            a(:) = a .* (a > 0);
-            l.y = a;
+        function l = relu(w)
+            l.w = w;
+            l.dw = 0 * w;
         end
 
-        function d = back(l, d)
-            d(:) = d .* (l.y > 0);
+        function y = forw(l, x)
+            y = l.w * x;
+            y = y .* (y > 0);
+            l.y = y;
+            l.x = x;
+        end
+
+        function dx = back(l, dy)
+            dy = dy .* (l.y > 0);
+            l.dw = dy * l.x';
+            if nargout > 0
+                dx = l.w' * dy;
+            end
         end
 
     end % methods
