@@ -9,16 +9,17 @@ function net = adagrad(net, x, y, varargin)
     for e = 1:E
         for i = 1:B:M
             j = min(i+B-1, M);
-            xij = x(:,i:j);
-            yij = y(:,i:j);
 
+            xij = x(:,i:j);
             for l=1:L
                 xij = net{l}.forw(xij);
             end
 
-            for l=L:-1:1
+            yij = y(:,i:j);
+            for l=L:-1:2
                 yij = net{l}.back(yij);
             end
+            net{1}.back(yij);           % last yij is slow and unnecessary
 
             for l=1:L
                 if (ismethod(net{l}, 'adagrad'))
