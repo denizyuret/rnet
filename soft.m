@@ -1,20 +1,31 @@
 classdef soft < handle
     
     properties
-        y 	% output probabilities
+        y 		% output probabilities
+        x		% input
+        w               % parameters
+        dw              % gradient of parameters
     end
 
     methods
         
-        function x = forw(l, x)
-            x = softmax(gather(x));
-            l.y = x;
+        function l = soft(w)
+            l.w = w;
+            l.dw = 0 * w;
         end
 
-        function dx = back(l, y)
-            m = numel(y);  % y is a vector of correct classes
-            y = full(sparse(double(gather(y)), 1:m, 1));
-            dx = (l.y - y) / m;
+        function y = forw(l, x)
+            y = softmax(gather(l.w * x));
+            l.x = x;
+            l.y = y;
+        end
+
+        function dx = back(l, dy)
+            m = numel(dy);  % dy is a vector of correct classes
+            dy = full(sparse(double(gather(dy)), 1:m, 1));
+            dy = (l.y - dy) / m;
+            l.dw = dy * l.x';
+            dx = l.w' * dy;
         end
 
     end % methods
