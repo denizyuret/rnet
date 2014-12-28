@@ -1,5 +1,4 @@
-function [dw, J] = forwback(w, x, y)
-    [z, a] = forward(w, x);
-    [dz, J] = softmax_diff(z, y);
-    dw = backward(w, a, dz);
+function forwback(net, x, y)
+    forward(net, x);
+    backward(net, y);
 end

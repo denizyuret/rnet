@@ -1,34 +1,42 @@
-function w = adagrad(w, x, y, varargin)
-    o = options(w, x, y, varargin{:});
+function net = adagrad(net, x, y, varargin)
+    o = options(net, x, y, varargin{:});
     r = report();
-    xsize = size(x, 2);
+    M = size(x, 2);
+    L = numel(net);
+    E = o.epochs;
+    B = o.batchSize;
 
-    for l=1:numel(w)
-        G{l} = 0 * w{l};
-    end
+    for e = 1:E
+        for i = 1:B:M
+            j = min(i+B-1, M);
+            xij = x(:,i:j);
+            yij = y(:,i:j);
 
-    for e = 1:o.epochs
-        for i = 1:o.batchSize:xsize
-            j = min(i+o.batchSize-1, xsize);
-            [g, loss] = forwback(w, x(:,i:j), y(:,i:j));
-            for l=1:numel(g)
-                G{l}(:) = G{l} + g{l} .* g{l};
-                dw = o.learningRate * g{l} ./ (o.eps + sqrt(G{l}));
-
-                %% hackery to match caffe with bias and local lr
-                if (l < numel(g)) dw(1,:) = 0; end % bias hack
-                dw(:,1) = dw(:,1) * 2;  % caffe blobs_lr:2 hack
-                %% end of hackery
-
-                w{l}(:) = w{l} - dw;
+            for l=1:L
+                xij = net{l}.forw(xij);
             end
-            r = report(loss, w, j-i+1, o, r);
+
+            for l=L:-1:1
+                yij = net{l}.back(yij);
+            end
+
+            for l=1:L
+                if (ismethod(net{l}, 'adagrad'))
+                    net{l}.adagrad(o.learningRate);
+                end
+            end
+
+            b = j-i+1;
+            p = xij(sub2ind(size(xij), y(:,i:j), 1:b));
+            loss = -mean(log(max(p, realmin(class(p)))));
+            r = report(loss, net, b, o, r);
+
         end
     end
 end
 
 
-function r = report(loss, w, m, o, r)
+function r = report(loss, net, m, o, r)
     if nargin < 1
         r.time = tic;
         r.instances = 0;
@@ -48,7 +56,7 @@ function r = report(loss, w, m, o, r)
     if ~isempty(o.xdev)
         if r.instances >= r.nexttest
             fprintf('Testing dev... ');
-            [acc, loss] = evalnet(w, o.xdev, o.ydev);
+            [acc, loss] = evalnet(net, o.xdev, o.ydev);
             fprintf('loss=%g accuracy=%g\n', loss, acc);
             r.nexttest = r.nexttest + o.testStep;
         end
@@ -60,20 +68,19 @@ function r = report(loss, w, m, o, r)
 end
 
 
-function o = options(w, x, y, varargin)
+function o = options(net, x, y, varargin)
     p = inputParser;
-    p.addRequired('w', @iscell);
+    p.addRequired('net', @iscell);
     p.addRequired('x', @isnumeric);
     p.addRequired('y', @isnumeric);
     p.addParamValue('epochs', 1, @isnumeric);
     p.addParamValue('batchSize', 128, @isnumeric);
-    p.addParamValue('eps', 1e-8, @isnumeric);
     p.addParamValue('learningRate', 0.004, @isnumeric);
     p.addParamValue('printStep', 1e4, @isnumeric);
     p.addParamValue('testStep', 1e5, @isnumeric);
     p.addParamValue('xdev', [], @isnumeric);
     p.addParamValue('ydev', [], @isnumeric);
-    p.parse(w, x, y, varargin{:});
+    p.parse(net, x, y, varargin{:});
     o = p.Results;
 end
 
