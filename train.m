@@ -1,4 +1,4 @@
-function net = adagrad(net, x, y, varargin)
+function net = train(net, x, y, varargin)
     o = options(net, x, y, varargin{:});
     r = report();
     M = size(x, 2);
@@ -22,11 +22,12 @@ function net = adagrad(net, x, y, varargin)
             net{1}.back(yij);           % last yij is slow and unnecessary
 
             for l=1:L
-                if (ismethod(net{l}, 'adagrad'))
-                    net{l}.adagrad(o.learningRate);
+                if (ismethod(net{l}, 'update'))
+                    net{l}.update(o.learningRate);
                 end
             end
 
+            % todo: this is softmax specific, put this in softmax.
             b = j-i+1;
             p = xij(sub2ind(size(xij), y(:,i:j), 1:b));
             loss = -mean(log(max(p, realmin(class(p)))));
@@ -54,11 +55,14 @@ function r = report(loss, net, m, o, r)
     else
         r.avgloss = 0.01*loss + 0.99*r.avgloss;
     end
-    if ~isempty(o.xdev)
+    if ~isempty(o.test)
         if r.instances >= r.nexttest
-            fprintf('Testing dev... ');
-            [acc, loss] = evalnet(net, o.xdev, o.ydev);
-            fprintf('loss=%g accuracy=%g\n', loss, acc);
+            fprintf('Testing...');
+            for i=1:2:numel(o.test)
+                [acc, loss] = evalnet(net, o.test{i}, o.test{i+1});
+                fprintf('\t%g\t%g', loss, acc);
+            end
+            fprintf('\n');
             r.nexttest = r.nexttest + o.testStep;
         end
     end
@@ -74,13 +78,12 @@ function o = options(net, x, y, varargin)
     p.addRequired('net', @iscell);
     p.addRequired('x', @isnumeric);
     p.addRequired('y', @isnumeric);
+    p.addParamValue('test', {}, @iscell);
     p.addParamValue('epochs', 1, @isnumeric);
     p.addParamValue('batchSize', 128, @isnumeric);
     p.addParamValue('learningRate', 0.004, @isnumeric);
     p.addParamValue('printStep', 1e4, @isnumeric);
     p.addParamValue('testStep', 1e5, @isnumeric);
-    p.addParamValue('xdev', [], @isnumeric);
-    p.addParamValue('ydev', [], @isnumeric);
     p.parse(net, x, y, varargin{:});
     o = p.Results;
 end
