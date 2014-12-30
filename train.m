@@ -10,20 +10,20 @@ function net = train(net, x, y, varargin)
         for i = 1:B:M
             j = min(i+B-1, M);
 
-            xij = x(:,i:j);
-            for l=1:L
-                xij = net{l}.forw(xij);
+            a = net{1}.forw(x(:,i:j));
+            for l=2:L
+                a = net{l}.forw(a, o.dropout);
             end
 
-            yij = y(:,i:j);
+            d = y(:,i:j);
             for l=L:-1:2
-                yij = net{l}.back(yij);
+                d = net{l}.back(d);
             end
-            net{1}.back(yij);           % last yij is slow and unnecessary
+            net{1}.back(d);           % last dx is slow and unnecessary
 
             for l=1:L
                 if (ismethod(net{l}, 'update'))
-                    net{l}.update(o.learningRate);
+                    net{l}.update();
                 end
             end
 
@@ -58,10 +58,10 @@ function o = options(net, x, y, varargin)
     p.addRequired('net', @iscell);
     p.addRequired('x', @isnumeric);
     p.addRequired('y', @isnumeric);
+    p.addParamValue('dropout', 0, @isnumeric);
     p.addParamValue('test', {}, @iscell);
     p.addParamValue('epochs', 1, @isnumeric);
     p.addParamValue('batchSize', 128, @isnumeric);
-    p.addParamValue('learningRate', 0.004, @isnumeric);
     p.addParamValue('testStep', 1e5, @isnumeric);
     p.parse(net, x, y, varargin{:});
     o = p.Results;
