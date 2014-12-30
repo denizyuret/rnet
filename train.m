@@ -1,6 +1,6 @@
 function net = train(net, x, y, varargin)
     o = options(net, x, y, varargin{:});
-    r = report();
+    r = report(net, 0, o, []);
     M = size(x, 2);
     L = numel(net);
     E = o.epochs;
@@ -27,48 +27,28 @@ function net = train(net, x, y, varargin)
                 end
             end
 
-            % todo: this is softmax specific, put this in softmax.
-            b = j-i+1;
-            p = xij(sub2ind(size(xij), y(:,i:j), 1:b));
-            loss = -mean(log(max(p, realmin(class(p)))));
-            r = report(loss, net, b, o, r);
-
+            r = report(net, j-i+1, o, r);
         end
     end
 end
 
 
-function r = report(loss, net, m, o, r)
-    if nargin < 1
+function r = report(net, m, o, r)
+    if isempty(r)
         r.time = tic;
         r.instances = 0;
-        r.nextprint = 0;
         r.nexttest = 0;
-        r.avgloss = inf;
-        fprintf('inst\tavgloss\tspeed\ttime\n');
-        return;
+        fprintf('inst\tloss\tacc...\tspeed\ttime\n');
     end
-
     r.instances = r.instances + m;
-    if isinf(r.avgloss)
-        r.avgloss = loss;
-    else
-        r.avgloss = 0.01*loss + 0.99*r.avgloss;
-    end
-    if ~isempty(o.test)
-        if r.instances >= r.nexttest
-            fprintf('Testing...');
-            for i=1:2:numel(o.test)
-                [acc, loss] = evalnet(net, o.test{i}, o.test{i+1});
-                fprintf('\t%g\t%g', loss, acc);
-            end
-            fprintf('\n');
-            r.nexttest = r.nexttest + o.testStep;
+    if r.instances >= r.nexttest
+        fprintf('%d', r.instances);
+        for i=1:2:numel(o.test)
+            [acc, loss] = evalnet(net, o.test{i}, o.test{i+1});
+            fprintf('\t%.5f\t%.5f', loss, acc);
         end
-    end
-    if r.instances >= r.nextprint
-        fprintf('%g\t%.5f\t%.2f\t%.2f\n', r.instances, r.avgloss, r.instances/toc(r.time), toc(r.time));
-        r.nextprint = r.nextprint + o.printStep;
+        fprintf('\t%.1f\t%.1f\n', r.instances/toc(r.time), toc(r.time));
+        r.nexttest = r.nexttest + o.testStep;
     end
 end
 
@@ -82,7 +62,6 @@ function o = options(net, x, y, varargin)
     p.addParamValue('epochs', 1, @isnumeric);
     p.addParamValue('batchSize', 128, @isnumeric);
     p.addParamValue('learningRate', 0.004, @isnumeric);
-    p.addParamValue('printStep', 1e4, @isnumeric);
     p.addParamValue('testStep', 1e5, @isnumeric);
     p.parse(net, x, y, varargin{:});
     o = p.Results;
