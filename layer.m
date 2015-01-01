@@ -23,10 +23,12 @@ classdef layer < matlab.mixin.Copyable
 
     methods
         
-        function y = forw(l, x)
-            if l.dropout
+        function y = forw(l, x, do_dropout)
+            if nargin > 2 && do_dropout && l.dropout
                 l.mask = (gpuArray.rand(size(x), 'single') > l.dropout);
                 x = x .* l.mask * (1/(1-l.dropout));
+            else
+                l.mask = [];
             end
 
             y = l.w{1} * x;
@@ -53,7 +55,7 @@ classdef layer < matlab.mixin.Copyable
             end
             if nargout > 0
                 dx = l.w{1}' * dy;
-                if l.dropout
+                if ~isempty(l.mask)
                     dx = dx .* l.mask * (1/(1-l.dropout));
                 end
             end
