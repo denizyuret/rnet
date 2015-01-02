@@ -1,6 +1,6 @@
 function net = train(net, x, y, varargin)
     o = options(net, x, y, varargin{:});
-    r = report(net, 0, o, []);
+    r = report(net, o, []);
     M = size(x, 2);
     L = numel(net);
     E = o.epochs;
@@ -10,59 +10,82 @@ function net = train(net, x, y, varargin)
         for i = 1:B:M
             j = min(i+B-1, M);
 
-            a = net{1}.forw(x(:,i:j));
-            for l=2:L
-                a = net{l}.forw(a, o.dropout);
+            a = x(:,i:j);
+            for l=1:L
+                a = net{l}.forw(a,1);
             end
 
             d = y(:,i:j);
             for l=L:-1:2
                 d = net{l}.back(d);
             end
-            net{1}.back(d);           % last dx is slow and unnecessary
+            % last dx is slow and unnecessary
+            net{1}.back(d);
 
             for l=1:L
-                if (ismethod(net{l}, 'update'))
-                    net{l}.update();
-                end
+                net{l}.update();
             end
 
-            r = report(net, j-i+1, o, r);
+            r = report(net, o, r);
         end
     end
 end
 
 
-function r = report(net, m, o, r)
+function r = report(net, o, r)
     if isempty(r)
         r.time = tic;
         r.instances = 0;
         r.nexttest = 0;
-        fprintf('inst\tloss\tacc...\tspeed\ttime\n');
+        fprintf('inst');
+        for i=1:2:numel(o.test)
+            fprintf('\tloss\tacc');
+        end
+        fprintf('\tspeed\ttime\n');
+    else
+        r.instances = r.instances + size(net{1}.x, 2);
     end
-    r.instances = r.instances + m;
-    if r.instances >= r.nexttest
+    if o.verbose >= 1 && r.instances >= r.nexttest
+        r.nexttest = r.nexttest + o.testStep;
         fprintf('%d', r.instances);
         for i=1:2:numel(o.test)
             [acc, loss] = evalnet(net, o.test{i}, o.test{i+1});
             fprintf('\t%.5f\t%.5f', loss, acc);
         end
         fprintf('\t%.1f\t%.1f\n', r.instances/toc(r.time), toc(r.time));
-        r.nexttest = r.nexttest + o.testStep;
+        
+        if o.verbose >= 2
+            fprintf('\n\tmin\trms\tmax\tnz\n');
+            for l=1:numel(net)
+                summary(net{l}.x, l, 'x');
+                summary(net{l}.y, l, 'y');
+                summary(net{l}.w{1}, l, 'w');
+                summary(net{l}.w{2}, l, 'b');
+                if ~isempty(net{l}.dw)
+                    summary(net{l}.dw{1}, l, 'dw');
+                    summary(net{l}.dw{2}, l, 'db');
+                end
+                fprintf('\n');
+            end
+        end
     end
 end
 
+function summary(a, l, s)
+    fprintf('%s%d\t%.4f\t%.4f\t%.4f\t%.4f\n', ...
+            s, l, min(a(:)), sqrt(mean(a(:).^2)), max(a(:)), mean(a(:)~=0));            
+end
 
 function o = options(net, x, y, varargin)
     p = inputParser;
     p.addRequired('net', @iscell);
     p.addRequired('x', @isnumeric);
     p.addRequired('y', @isnumeric);
-    p.addParamValue('dropout', 0, @isnumeric);
     p.addParamValue('test', {}, @iscell);
     p.addParamValue('epochs', 1, @isnumeric);
     p.addParamValue('batchSize', 128, @isnumeric);
     p.addParamValue('testStep', 1e5, @isnumeric);
+    p.addParamValue('verbose', 1, @isnumeric);
     p.parse(net, x, y, varargin{:});
     o = p.Results;
 end
