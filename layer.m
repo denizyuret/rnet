@@ -87,7 +87,9 @@ classdef layer < matlab.mixin.Copyable
                         l.dw1{i} = l.dw{i};
                     end
                     if l.check('nesterov', i)
-                        l.w{i} = l.w{i} - l.momentum{i} * l.dw1{i};
+                        l.dw{i} = l.dw{i} + l.momentum{i} * l.dw1{i};
+                    else
+                        l.dw{i} = l.dw1{i};
                     end
                 end
 
