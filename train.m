@@ -12,7 +12,10 @@ function net = train(net, x, y, varargin)
 
             a = x(:,i:j);
             for l=1:L
-                a = net{l}.forw(a,1);
+                if net{l}.dropout
+                    a = net{l}.drop(a);
+                end
+                a = net{l}.forw(a);
             end
 
             d = y(:,i:j);
