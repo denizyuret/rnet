@@ -81,7 +81,7 @@ function r = report(net, o, r)
         end
     end
     if o.saveStep >= 1 && r.instances >= r.nextsave
-        fname = sprintf('%s%d', o.saveName, r.instances);
+        fname = sprintf('%s%d.mat', o.saveName, r.instances);
         fprintf('Saving %s...', fname);
         save(fname, 'net', '-v7.3');
         fprintf('done\n');
