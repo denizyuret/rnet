@@ -29,49 +29,66 @@ function net = train(net, x, y, varargin)
             r = report(net, o, r);
         end
     end
+    r.flush = 1;
+    report(net, o, r);
 end
 
 
 function r = report(net, o, r)
-    if isempty(r)
+    if ~isempty(r)
+        r.instances = r.instances + size(net{1}.x, 2);
+    else
         r.time = tic;
         r.instances = 0;
-        r.nexttest = 0;
-        r.nextsave = 0;
-        fprintf('inst');
-        for i=1:2:numel(o.test)
-            fprintf('\tloss\tacc');
+        r.flush = 1;
+    end
+    if r.flush
+        r.nexttest = r.instances;
+        r.nextstat = r.instances;
+        r.nextsave = r.instances;
+        r.flush = 0;
+    end
+    if o.testStep >= 1 && r.instances >= r.nexttest
+        if r.instances == 0
+            fprintf('%-13s', 'inst');
+            for i=1:2:numel(o.testData)
+                fprintf('%-13s%-13s', 'loss', 'acc');
+            end
+            fprintf('%-13s%-13s\n', 'speed', 'time');
         end
-        fprintf('\tspeed\ttime\n');
-    else
-        r.instances = r.instances + size(net{1}.x, 2);
+        r.nexttest = r.nexttest + o.testStep;
+        fprintf('%-13d', r.instances);
+        for i=1:2:numel(o.testData)
+            [acc, loss] = evalnet(net, o.testData{i}, o.testData{i+1});
+            fprintf('%-13g%-13g', loss, acc);
+        end
+        fprintf('%-13g%-13g\n', r.instances/toc(r.time), toc(r.time));
+    end
+    if o.statStep >= 1 && r.instances >= r.nextstat
+        r.nextstat = r.nextstat + o.statStep;
+        fprintf('\n%-13s%-13s%-13s%-13s%-13s%-13s\n', 'array', 'min', ...
+                'rms', 'max', 'nz', 'nzrms');
+        for l=1:numel(net)
+            summary(net, l, 'x');
+            summary(net, l, 'y');
+            for i=1:numel(net{l}.w)
+                summary(net, l, 'w', i);
+            end
+            for i=1:numel(net{l}.dw)
+                summary(net, l, 'dw', i);
+            end
+            fprintf('\n');
+        end
     end
     if o.saveStep >= 1 && r.instances >= r.nextsave
-        r.nextsave = r.instances + o.saveStep;
-        save(sprintf('%s%d', o.saveName, r.instances), 'net', '-v7.3');
-    end
-    if o.verbose >= 1 && r.instances >= r.nexttest
-        r.nexttest = r.instances + o.testStep;
-        fprintf('%d', r.instances);
-        for i=1:2:numel(o.test)
-            [acc, loss] = evalnet(net, o.test{i}, o.test{i+1});
-            fprintf('\t%.5f\t%.5f', loss, acc);
-        end
-        fprintf('\t%.1f\t%.1f\n', r.instances/toc(r.time), toc(r.time));
-        
-        if o.verbose >= 2
-            fprintf('\n\tmin\trms\tmax\tnz\n');
-            for l=1:numel(net)
-                summary(net, l, 'x');
-                summary(net, l, 'y');
-                for i=1:numel(net{l}.w)
-                    summary(net, l, 'w', i);
-                end
-                for i=1:numel(net{l}.dw)
-                    summary(net, l, 'dw', i);
-                end
-                fprintf('\n');
-            end
+        fname = sprintf('%s%d', o.saveName, r.instances);
+        fprintf('Saving %s...', fname);
+        save(fname, 'net', '-v7.3');
+        fprintf('done\n');
+        if r.nextsave == 0
+            r.nextsave = o.saveStep;
+        else
+            r.nextsave = r.nextsave * 2;
         end
     end
 end
@@ -79,13 +96,15 @@ end
 function summary(net, l, f, i)
     a = getfield(net{l}, f);
     if nargin > 3
-        a = a{i};
-        fprintf('n%d.%s%d\t%.4f\t%.4f\t%.4f\t%.4f\n', ...
-                l, f, i, min(a(:)), sqrt(mean(a(:).^2)), max(a(:)), mean(a(:)~=0));            
+        a = a{i}; 
+        nm = sprintf('n%d.%s%d', l, f, i);
     else
-        fprintf('n%d.%s\t%.4f\t%.4f\t%.4f\t%.4f\n', ...
-                l, f, min(a(:)), sqrt(mean(a(:).^2)), max(a(:)), mean(a(:)~=0));            
+        nm = sprintf('n%d.%s', l, f);
     end
+    nz = (a(:)~=0);
+    fprintf('%-13s%-13g%-13g%-13g%-13g%-13g\n', ...
+            nm, min(a(:)), sqrt(mean(a(:).^2)), max(a(:)), ...
+            mean(nz), sqrt(mean(a(nz).^2)));
 end
 
 function o = options(net, x, y, varargin)
@@ -93,15 +112,13 @@ function o = options(net, x, y, varargin)
     p.addRequired('net', @iscell);
     p.addRequired('x', @isnumeric);
     p.addRequired('y', @isnumeric);
-    p.addParamValue('test', {}, @iscell);
     p.addParamValue('epochs', 1, @isnumeric);
     p.addParamValue('batchSize', 100, @isnumeric);
     p.addParamValue('testStep', 1e5, @isnumeric);
-    p.addParamValue('saveStep', -1, @isnumeric);
+    p.addParamValue('testData', {}, @iscell);
+    p.addParamValue('saveStep', 1e6, @isnumeric);
     p.addParamValue('saveName', 'net', @ischar);
-    p.addParamValue('verbose', 1, @isnumeric);
+    p.addParamValue('statStep', 1e5, @isnumeric);
     p.parse(net, x, y, varargin{:});
     o = p.Results;
 end
-
-
