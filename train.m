@@ -37,6 +37,7 @@ function r = report(net, o, r)
         r.time = tic;
         r.instances = 0;
         r.nexttest = 0;
+        r.nextsave = 0;
         fprintf('inst');
         for i=1:2:numel(o.test)
             fprintf('\tloss\tacc');
@@ -45,8 +46,12 @@ function r = report(net, o, r)
     else
         r.instances = r.instances + size(net{1}.x, 2);
     end
+    if o.saveStep >= 1 && r.instances >= r.nextsave
+        r.nextsave = r.instances + o.saveStep;
+        save(sprintf('%s%d', o.saveName, r.instances), 'net', '-v7.3');
+    end
     if o.verbose >= 1 && r.instances >= r.nexttest
-        r.nexttest = r.nexttest + o.testStep;
+        r.nexttest = r.instances + o.testStep;
         fprintf('%d', r.instances);
         for i=1:2:numel(o.test)
             [acc, loss] = evalnet(net, o.test{i}, o.test{i+1});
@@ -90,8 +95,10 @@ function o = options(net, x, y, varargin)
     p.addRequired('y', @isnumeric);
     p.addParamValue('test', {}, @iscell);
     p.addParamValue('epochs', 1, @isnumeric);
-    p.addParamValue('batchSize', 128, @isnumeric);
+    p.addParamValue('batchSize', 100, @isnumeric);
     p.addParamValue('testStep', 1e5, @isnumeric);
+    p.addParamValue('saveStep', -1, @isnumeric);
+    p.addParamValue('saveName', 'net', @ischar);
     p.addParamValue('verbose', 1, @isnumeric);
     p.parse(net, x, y, varargin{:});
     o = p.Results;
