@@ -1,10 +1,9 @@
 classdef layer < matlab.mixin.Copyable
     
-    properties (SetAccess = private)
+    properties
         w               % weight matrix
         bias            % boolean: whether first column of w is for bias
-    end
-    properties (Access = public)
+
         learningRate    % learning rate
         momentum        % momentum
         adagrad         % boolean indicating adagrad trick
@@ -13,12 +12,11 @@ classdef layer < matlab.mixin.Copyable
         maxnorm         % parameter for maxnorm regularization
         L1              % parameter for L1 regularization
         L2              % parameter for L2 regularization
-    end
-    properties (SetAccess = private)
+
         dw1             % moving average of gradients for momentum
         dw2             % sum of squared gradients for adagrad
     end
-    properties (SetAccess = private, Transient = true)
+    properties (Transient = true)
         dw              % gradient of parameters
         x,y		% last input and output
         xmask 		% input mask for dropout
