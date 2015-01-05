@@ -1,154 +1,128 @@
 classdef layer < matlab.mixin.Copyable
     
-    properties
-        w               % cell array: { weights, biases }
-        f               % activation function: {'relu' or 'soft'}
-
+    properties (SetAccess = private)
+        w               % weight matrix
+        bias            % boolean: whether first column of w is for bias
+    end
+    properties (Access = public)
         learningRate    % learning rate
         momentum        % momentum
-        L1              % parameter for L1 regularization
-        L2              % parameter for L2 regularization
-        maxnorm         % parameter for maxnorm regularization
-
         adagrad         % boolean indicating adagrad trick
         nesterov        % boolean indicating nesterov trick
-        dropout         % percentage of inputs to drop
-
-        x,y		% input, output
-        dw              % gradient of parameters
+        dropout         % probability of dropping inputs
+        maxnorm         % parameter for maxnorm regularization
+        L1              % parameter for L1 regularization
+        L2              % parameter for L2 regularization
+    end
+    properties (SetAccess = private)
         dw1             % moving average of gradients for momentum
         dw2             % sum of squared gradients for adagrad
-        mask            % input mask for dropout
     end
-
+    properties (SetAccess = private, Transient = true)
+        dw              % gradient of parameters
+        x,y		% last input and output
+        xmask 		% input mask for dropout
+        xones           % row of ones to use for bias
+    end
     methods
         
-        function y = forw(l, x, do_dropout)
-            if nargin > 2 && do_dropout && isscalar(l.dropout)
-                l.mask = (gpuArray.rand(size(x), 'single') > l.dropout);
-                x = x .* l.mask * (1/(1-l.dropout));
-            else
-                l.mask = [];
-            end
+        function y = fforw(l, y)
+        % fforw is the activation function, sigmoid by default, override to
+        % get other types of units.
+ 
+            y = 1 ./ (1 + exp(-y));
+        end
 
-            y = l.w{1} * x;
+        function dy = fback(l, dy)
+        % fback multiplies its input with the derivative of the
+        % activation function fforw.
 
-            if numel(l.w) > 1
-                y = bsxfun(@plus, y, l.w{2});
+            dy = dy .* l.y .* (1 - l.y);
+        end
+
+
+        function y = forw(l, x)
+        % forw transforms input x to output y using the linear
+        % transformation followed by the activation function. 
+
+            if l.bias
+                if size(x, 2) ~= size(l.xones, 2)
+                    l.xones = 1 + 0 * x(1,:);
+                end
+                x = [l.xones; x];
             end
-            if ~isempty(l.f)
-                y = l.([l.f '_forw'])(y);
-            end
+            y = l.fforw(l.w * x);
             l.x = x;
             l.y = y;
         end
 
         function dx = back(l, dy)
-            if ~isempty(l.f)
-                dy = l.([l.f '_back'])(dy);
-            end
+        % back transforms the loss gradient with respect to output
+        % dy to the gradient with respect to input dx.
 
-            l.dw{1} = dy * l.x';
-
-            if numel(l.w) > 1
-                l.dw{2} = sum(dy, 2);
-            end
+            dy = l.fback(dy);
+            l.dw = dy * l.x';
             if nargout > 0
-                dx = l.w{1}' * dy;
-                if ~isempty(l.mask)
-                    dx = dx .* l.mask * (1/(1-l.dropout));
+                dx = l.w' * dy;
+                if l.bias
+                    dx = dx(2:end,:);
+                end
+                if ~isempty(l.xmask)
+                    dx = dx .* l.xmask * (1/(1-l.dropout));
+                    l.xmask = [];
                 end
             end
+        end
+
+        function x = drop(l, x)
+        % Drop each element of the input x with probability
+        % l.dropout.
+        % TODO: change this to 'like', 'x' in later matlab version
+
+            l.xmask = (gpuArray.rand(size(x), 'single') > l.dropout); 
+            x = x .* l.xmask * (1/(1-l.dropout));
         end
 
         function update(l)
-            for i=1:numel(l.dw)
-                if l.check('L1', i)
-                    l.dw{i} = l.dw{i} + l.L1{i} * sign(l.w{i});
+            if l.L1
+                l.dw = l.dw + l.L1 * sign(l.w);
+            end
+            if l.L2
+                l.dw = l.dw + l.L2 * l.w;
+            end
+            if l.adagrad
+                if ~isempty(l.dw2)
+                    l.dw2 = l.dw .* l.dw + l.dw2;
+                else
+                    l.dw2 = l.dw .* l.dw;
                 end
-                if l.check('L2', i)
-                    l.dw{i} = l.dw{i} + l.L2{i} * l.w{i};
+                l.dw = l.dw ./ (1e-8 + sqrt(l.dw2));
+            end
+            if l.learningRate
+                l.dw = l.learningRate * l.dw;
+            end
+            if l.momentum
+                if ~isempty(l.dw1)
+                    l.dw1 = l.dw + l.momentum * l.dw1;
+                else
+                    l.dw1 = l.dw;
                 end
-                if l.check('adagrad', i)
-                    if numel(l.dw2) >= i
-                        l.dw2{i} = l.dw{i} .* l.dw{i} + l.dw2{i};
-                    else
-                        l.dw2{i} = l.dw{i} .* l.dw{i};
-                    end
-                    l.dw{i} = l.dw{i} ./ (1e-8 + sqrt(l.dw2{i}));
-                end
-                if l.check('learningRate', i, 1)
-                    l.dw{i} = l.learningRate{i} * l.dw{i};
-                end
-                if l.check('momentum', i)
-                    if numel(l.dw1) >= i
-                        l.dw1{i} = l.dw{i} + l.momentum{i} * l.dw1{i};
-                    else
-                        l.dw1{i} = l.dw{i};
-                    end
-                    if l.check('nesterov', i)
-                        l.dw{i} = l.dw{i} + l.momentum{i} * l.dw1{i};
-                    else
-                        l.dw{i} = l.dw1{i};
-                    end
-                end
-
-                l.w{i} = l.w{i} - l.dw{i};
-
-                if l.check('maxnorm', i, inf)
-                    norms = sqrt(sum(l.w{i}.^2, 2));
-                    if any(norms > l.maxnorm{i})
-                        scale = min(l.maxnorm{i} ./ norms, 1);
-                        l.w{i} = bsxfun(@times, l.w{i}, scale);
-                    end
+                if l.nesterov
+                    l.dw = l.dw + l.momentum * l.dw1;
+                else
+                    l.dw = l.dw1;
                 end
             end
-        end
 
-        function ok = check(l, p, i, v)
-            if isempty(l.(p))
-                ok = false;
-            else
-                if ~iscell(l.(p))
-                    lp = l.(p);
-                    l.(p) = {};
-                    for i=1:numel(l.w)
-                        l.(p){i} = lp;
-                    end
+            l.w = l.w - l.dw;
+
+            if l.maxnorm
+                norms = sqrt(sum(l.w.^2, 2));
+                if any(norms > l.maxnorm)
+                    scale = min(l.maxnorm ./ norms, 1);
+                    l.w = bsxfun(@times, l.w, scale);
                 end
-                if nargin < 4 
-                    v=0; 
-                end
-                ok = (l.(p){i} ~= v);
             end
-        end
-
-        function y = relu_forw(l, y)
-            y = y .* (y > 0);
-        end
-
-        function dy = relu_back(l, dy)
-            dy = dy .* (l.y > 0);
-        end
-
-        function y = soft_forw(l, y)
-            y = softmax(gather(y));
-        end
-
-        function dy = soft_back(l, dy)
-            m = numel(dy);  % dy is a vector of correct classes
-            dy = full(sparse(double(gather(dy)), 1:m, 1));
-            dy = (l.y - dy) / m;
-        end
-
-        function nll = loss(l, probs, labels)
-            py = probs(sub2ind(size(probs), labels, 1:numel(labels)));
-            nll = -mean(log(max(py, realmin(class(py)))));
-        end
-
-        function acc = accuracy(l, probs, labels)
-            [~,maxp] = max(probs);
-            acc = mean(maxp == labels);
         end
 
         function l = layer(varargin)
