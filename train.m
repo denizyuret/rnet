@@ -68,12 +68,8 @@ function r = report(net, o, r)
         for l=1:numel(net)
             summary(net, l, 'x');
             summary(net, l, 'y');
-            for i=1:numel(net{l}.w)
-                summary(net, l, 'w', i);
-            end
-            for i=1:numel(net{l}.dw)
-                summary(net, l, 'dw', i);
-            end
+            summary(net, l, 'w');
+            summary(net, l, 'dw');
             fprintf('\n');
         end
     end
@@ -90,14 +86,10 @@ function r = report(net, o, r)
     end
 end
 
-function summary(net, l, f, i)
+function summary(net, l, f)
     a = getfield(net{l}, f);
-    if nargin > 3
-        a = a{i}; 
-        nm = sprintf('n%d.%s%d', l, f, i);
-    else
-        nm = sprintf('n%d.%s', l, f);
-    end
+    if isempty(a) return; end
+    nm = sprintf('n%d.%s', l, f);
     nz = (a(:)~=0);
     fprintf('%-13s%-13g%-13g%-13g%-13g%-13g\n', ...
             nm, min(a(:)), sqrt(mean(a(:).^2)), max(a(:)), ...
