@@ -70,6 +70,8 @@ function r = report(net, o, r)
             summary(net, l, 'y');
             summary(net, l, 'w');
             summary(net, l, 'dw');
+            summary(net, l, 'dw1');
+            summary(net, l, 'dw2');
             fprintf('\n');
         end
     end
