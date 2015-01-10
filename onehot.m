@@ -16,8 +16,7 @@ classdef onehot < layer
             d = size(l.w, 1);
             n = size(x, 1);
             m = size(x, 2);
-            %cpu: y = zeros(d*l.n1 + (n-l.n1), m, 'like', x);
-            y = zeros(d*l.n1 + (n-l.n1), m, 'single', 'gpuArray'); % this should say 'like' x instead of 'single.
+            y = l.zeroslike(d*l.n1 + (n-l.n1), m, l.w);
             for i=1:l.n1
                 y((i-1)*d+1:i*d,:) = l.w(:,x(i,:));
             end
@@ -26,15 +25,17 @@ classdef onehot < layer
         end
 
         function back(l, dy)
-            dy = gather(dy);
+            dy = gather(dy);	% faster on cpu?
             d = size(l.w, 1);
             x = reshape(l.x(1:l.n1,:), 1, []);
             dy = reshape(dy(1:d*l.n1,:), d, []);
-            dw = zeros(size(l.w), 'like', x);
+            dw = l.zeroslike(size(l.w,1), size(l.w,2), dy);
             for i=1:numel(x)
                 dw(:,x(i)) = dw(:,x(i)) + dy(:,i);
             end
-            l.dw = gpuArray(dw);
+            if isa(l.w, 'gpuArray')
+                l.dw = gpuArray(dw);
+            end
         end
 
         function l = onehot(varargin)
@@ -43,5 +44,13 @@ classdef onehot < layer
                 error('Must specify n1 (number of onehot entries).');
             end
         end
-    end
-end
+        
+        function y = zeroslike(l, rows, cols, var)
+            if isa(var, 'gpuArray')
+                y = zeros(rows, cols, classUnderlying(var), 'gpuArray');
+            else
+                y = zeros(rows, cols, class(var));
+            end
+        end
+    end % methods
+end % classdef
