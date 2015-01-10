@@ -75,10 +75,16 @@ classdef layer < matlab.mixin.Copyable
         function x = drop(l, x)
         % Drop each element of the input x with probability
         % l.dropout.
-        % TODO: change this to 'like', 'x' in later matlab version
-
-            l.xmask = (gpuArray.rand(size(x), 'single') > l.dropout); 
+            l.xmask = (l.randlike(x) > l.dropout);
             x = x .* l.xmask * (1/(1-l.dropout));
+        end
+
+        function y = randlike(l, x)
+            if isa(x, 'gpuArray')
+                y = gpuArray.rand(size(x), classUnderlying(x));
+            else
+                y = rand(size(x), class(x));
+            end
         end
 
         function update(l)
