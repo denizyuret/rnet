@@ -102,7 +102,7 @@ classdef layer < matlab.mixin.Copyable
                 end
                 l.dw = l.dw ./ (1e-8 + sqrt(l.dw2));
             end
-            if l.learningRate
+            if ~isempty(l.learningRate)
                 l.dw = l.learningRate * l.dw;
             end
             if l.momentum
