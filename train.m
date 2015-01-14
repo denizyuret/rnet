@@ -1,6 +1,6 @@
 function net = train(net, x, y, varargin)
     o = options(net, x, y, varargin{:});
-    r = report(net, o, []);
+    r = initreport(net, o);
     M = size(x, 2);
     L = numel(net);
     E = o.epochs;
@@ -32,19 +32,12 @@ function net = train(net, x, y, varargin)
             r = report(net, o, r);
         end
     end
+    finalreport(net, o, r);
 end
 
 
 function r = report(net, o, r)
-    if ~isempty(r)
-        r.instances = r.instances + size(net{1}.x, 2);
-    else
-        r.time = tic;
-        r.instances = 0;
-        r.nexttest = 0;
-        r.nextstat = 0;
-        r.nextsave = 0;
-    end
+    r.instances = r.instances + size(net{1}.x, 2);
     if o.test >= 1 && r.instances >= r.nexttest
         if r.instances == 0
             fprintf('%-13s', 'inst');
@@ -86,6 +79,23 @@ function r = report(net, o, r)
             r.nextsave = r.nextsave * 2;
         end
     end
+end
+
+function r = initreport(net, o)
+    r.time = tic;
+    r.instances = 0;
+    r.nexttest = 0;
+    r.nextstat = 0;
+    r.nextsave = 0;
+    r = report(net, o, r);
+end
+
+function finalreport(net, o, r)
+    net{1}.x = [];
+    r.nexttest = 0;
+    r.nextstat = 0;
+    r.nextsave = 0;
+    report(net, o, r);
 end
 
 function summary(net, l, f)
