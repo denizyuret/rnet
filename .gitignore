@@ -1,6 +1,8 @@
 *~
 *.mat
 unused
+log
+mat
 profile_results
 startup*
 bak
