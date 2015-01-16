@@ -10,7 +10,7 @@ classdef soft < layer
         % softmax is the last layer and takes a vector of correct
         % classes as dy to start backprop.
             m = numel(dy);
-            dy = full(sparse(double(gather(dy)), 1:m, 1));
+            dy = full(sparse(double(gather(dy)), 1:m, 1, size(l.y,1), m));
             dy = (softmax(gather(l.y)) - dy) / m;
         end
 
