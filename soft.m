@@ -2,7 +2,8 @@ classdef soft < layer
     methods
 
         function y = fforw(l, y)
-            y = softmax(gather(y));
+        % Let's return the linear output (i.e. unnormalized log
+        % probabilities) here for speed, do softmax in fback.
         end
 
         function dy = fback(l, dy)
@@ -10,7 +11,7 @@ classdef soft < layer
         % classes as dy to start backprop.
             m = numel(dy);
             dy = full(sparse(double(gather(dy)), 1:m, 1));
-            dy = (l.y - dy) / m;
+            dy = (softmax(gather(l.y)) - dy) / m;
         end
 
         function nll = loss(l, probs, labels)
