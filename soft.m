@@ -14,13 +14,14 @@ classdef soft < layer
             dy = (softmax(gather(l.y)) - dy) / m;
         end
 
-        function nll = loss(l, probs, labels)
+        function nll = loss(l, y, labels)
+            probs = softmax(gather(y));
             py = probs(sub2ind(size(probs), labels, 1:numel(labels)));
             nll = -mean(log(max(py, realmin(class(py)))));
         end
 
-        function acc = accuracy(l, probs, labels)
-            [~,maxp] = max(probs);
+        function acc = accuracy(l, y, labels)
+            [~,maxp] = max(y);
             acc = mean(maxp == labels);
         end
 
