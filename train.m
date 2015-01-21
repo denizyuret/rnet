@@ -115,11 +115,11 @@ function o = options(net, x, y, varargin)
     p.addRequired('y', @isnumeric);
     p.addParamValue('epochs', 1, @isnumeric);
     p.addParamValue('batch', 100, @isnumeric);
-    p.addParamValue('test', 1e5, @isnumeric);
+    p.addParamValue('test', 0, @isnumeric);
     p.addParamValue('testdata', {}, @iscell);
-    p.addParamValue('save', 1e6, @isnumeric);
+    p.addParamValue('save', 0, @isnumeric);
     p.addParamValue('savename', 'net', @ischar);
-    p.addParamValue('stats', 1e5, @isnumeric);
+    p.addParamValue('stats', 0, @isnumeric);
     p.parse(net, x, y, varargin{:});
     o = p.Results;
 end
