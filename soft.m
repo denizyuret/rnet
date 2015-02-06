@@ -11,7 +11,7 @@ classdef soft < layer
         % classes as dy to start backprop.
             m = numel(dy);
             dy = full(sparse(double(gather(dy)), 1:m, 1, size(l.y,1), m));
-            dy = (softmax(gather(l.y)) - dy) / m;
+            dy(:) = (softmax(gather(l.y)) - dy) / m;
         end
 
         function nll = loss(l, y, labels)
