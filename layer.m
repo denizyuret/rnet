@@ -28,14 +28,14 @@ classdef layer < matlab.mixin.Copyable
         % fforw is the activation function, sigmoid by default, override to
         % get other types of units.
  
-            y = 1 ./ (1 + exp(-y));
+            y(:) = 1 ./ (1 + exp(-y));
         end
 
         function dy = fback(l, dy)
         % fback multiplies its input with the derivative of the
         % activation function fforw.
 
-            dy = dy .* l.y .* (1 - l.y);
+            dy(:) = dy .* l.y .* (1 - l.y);
         end
 
 
@@ -47,11 +47,12 @@ classdef layer < matlab.mixin.Copyable
                 if size(x, 2) ~= size(l.xones, 2)
                     l.xones = 1 + 0 * x(1,:);
                 end
-                x = [l.xones; x];
+                l.x = [l.xones; x];
+            else
+                l.x = x;
             end
-            y = l.fforw(l.w * x);
-            l.x = x;
-            l.y = y;
+            l.y = l.fforw(l.w * l.x);
+            y = l.y;
         end
 
         function dx = back(l, dy)
@@ -59,14 +60,17 @@ classdef layer < matlab.mixin.Copyable
         % dy to the gradient with respect to input dx.
 
             dy = l.fback(dy);
-            l.dw = dy * l.x';
+            if isempty(l.dw)
+                l.dw = 0 * l.w;
+            end
+            l.dw(:) = dy * l.x';
             if nargout > 0
                 dx = l.w' * dy;
                 if l.bias
                     dx = dx(2:end,:);
                 end
                 if ~isempty(l.xmask)
-                    dx = dx .* l.xmask * (1/(1-l.dropout));
+                    dx(:) = dx .* l.xmask * (1/(1-l.dropout));
                     l.xmask = [];
                 end
             end
@@ -76,7 +80,7 @@ classdef layer < matlab.mixin.Copyable
         % Drop each element of the input x with probability
         % l.dropout.
             l.xmask = (l.randlike(x) > l.dropout);
-            x = x .* l.xmask * (1/(1-l.dropout));
+            x(:) = x .* l.xmask * (1/(1-l.dropout));
         end
 
         function y = randlike(l, x)
@@ -89,42 +93,42 @@ classdef layer < matlab.mixin.Copyable
 
         function update(l)
             if l.L1
-                l.dw = l.dw + l.L1 * sign(l.w);
+                l.dw(:) = l.dw + l.L1 * sign(l.w);
             end
             if l.L2
-                l.dw = l.dw + l.L2 * l.w;
+                l.dw(:) = l.dw + l.L2 * l.w;
             end
             if l.adagrad
                 if ~isempty(l.dw2)
-                    l.dw2 = l.dw .* l.dw + l.dw2;
+                    l.dw2(:) = l.dw .* l.dw + l.dw2;
                 else
                     l.dw2 = l.dw .* l.dw;
                 end
-                l.dw = l.dw ./ (1e-8 + sqrt(l.dw2));
+                l.dw(:) = l.dw ./ (1e-8 + sqrt(l.dw2));
             end
             if ~isempty(l.learningRate)
-                l.dw = l.learningRate * l.dw;
+                l.dw(:) = l.learningRate * l.dw;
             end
             if l.momentum
                 if ~isempty(l.dw1)
-                    l.dw1 = l.dw + l.momentum * l.dw1;
+                    l.dw1(:) = l.dw + l.momentum * l.dw1;
                 else
                     l.dw1 = l.dw;
                 end
                 if l.nesterov
-                    l.dw = l.dw + l.momentum * l.dw1;
+                    l.dw(:) = l.dw + l.momentum * l.dw1;
                 else
-                    l.dw = l.dw1;
+                    l.dw(:) = l.dw1;
                 end
             end
 
-            l.w = l.w - l.dw;
+            l.w(:) = l.w - l.dw;
 
             if l.maxnorm
                 norms = sqrt(sum(l.w.^2, 2));
                 if any(norms > l.maxnorm)
                     scale = min(l.maxnorm ./ norms, 1);
-                    l.w = bsxfun(@times, l.w, scale);
+                    l.w(:) = bsxfun(@times, l.w, scale);
                 end
             end
         end
